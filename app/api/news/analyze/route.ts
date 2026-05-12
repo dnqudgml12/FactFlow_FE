@@ -44,14 +44,22 @@ export async function POST(request: NextRequest) {
 
         let errorCode = 'UNKNOWN_ERROR';
         let statusCode = 500;
-        const errorMessage = (error as Error).message || '뉴스 분석 중 오류가 발생했습니다.';
+        const rawMessage = (error as Error).message || '뉴스 분석 중 오류가 발생했습니다.';
 
-        if ((error as Error).message.includes('API 키')) {
+        if (rawMessage.includes('429') || rawMessage.includes('Too Many Requests') || rawMessage.includes('quota') || rawMessage.includes('exceeded your current quota')) {
+            errorCode = 'QUOTA_EXCEEDED';
+            statusCode = 429;
+        } else if (rawMessage.includes('API 키')) {
             errorCode = 'API_KEY_ERROR';
-        } else if ((error as Error).message.includes('추출')) {
+        } else if (rawMessage.includes('추출')) {
             errorCode = 'CONTENT_EXTRACTION_ERROR';
             statusCode = 400;
         }
+
+        const errorMessage =
+            errorCode === 'QUOTA_EXCEEDED'
+                ? 'AI API 일일 사용 한도를 초과했습니다. 내일 다시 시도하거나 결제 플랜을 확인해 주세요.'
+                : rawMessage;
 
         return NextResponse.json(
             {

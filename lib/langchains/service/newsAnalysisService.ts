@@ -147,6 +147,9 @@ export class NewsAnalysisService {
                 console.log(`✅ ${analysisType} 완료`);
             } catch (error) {
                 console.error(`❌ ${analysisType} 분석 실패:`, error);
+                if (this.isQuotaError(error)) {
+                    throw error;
+                }
                 results[analysisType] = this.getDefaultValue(analysisType);
             }
         });
@@ -220,6 +223,17 @@ export class NewsAnalysisService {
         }
 
         return results as AnalysisResult;
+    }
+
+    /** Gemini 등 AI API 429/할당량 초과 여부 판별 */
+    private isQuotaError(error: unknown): boolean {
+        const message = error instanceof Error ? error.message : String(error);
+        return (
+            message.includes('429') ||
+            message.includes('Too Many Requests') ||
+            message.includes('quota') ||
+            message.includes('exceeded your current quota')
+        );
     }
 
     // 헬퍼 메서드

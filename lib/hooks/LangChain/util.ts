@@ -68,8 +68,12 @@ export const useNewsAnalysis = (): UseNewsAnalysisReturn => {
             setProgress({ current: 7, total: 7, currentStep: STAGE_LABELS[7] });
 
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `HTTP ${response.status}: 분석 요청이 실패했습니다.`);
+                const errorData = await response.json().catch(() => ({}));
+                const message =
+                    response.status === 429 || errorData.code === 'QUOTA_EXCEEDED'
+                        ? 'AI API 일일 사용 한도를 초과했습니다. 내일 다시 시도하거나 결제 플랜을 확인해 주세요.'
+                        : errorData.error || `HTTP ${response.status}: 분석 요청이 실패했습니다.`;
+                throw new Error(message);
             }
 
             const data = await response.json();
