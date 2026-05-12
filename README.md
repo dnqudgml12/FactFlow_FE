@@ -43,6 +43,9 @@ const $ = cheerio.load(response.data);
 const title = extractTitle($);
 const content = extractMainContent($);
 ```
+### 병렬 다이어그램
+
+![병렬 다이어그램](./docs/paralleldiagram.png)
 
 ### 관련 뉴스(외부 검색)
 
