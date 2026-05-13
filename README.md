@@ -57,7 +57,7 @@ const content = extractMainContent($);
 
 ## 배포 · 실행 환경
 
-- **Next.js** 웹 앱으로 로컬에서 `npm run dev`(기본 `http://localhost:3000`)로 실행한다.
+- **Next.js** 웹 앱으로 로컬에서 `npm run dev`로 실행한다.
 - 프로덕션 배포는 **Vercel** 등 Next 호스팅에 맞춰 설정하면 된다. (팀 배포 URL이 정해지면 이 항목에 추가한다.)
 
 ---
@@ -138,7 +138,6 @@ npm run lint   # Next.js ESLint
 
 ## 화면 구성
 
-스크린샷은 [`docs/`](./docs/)에 둔다. 파일명은 영어(`factflow-*.png`)로만 통일해 GitHub 등에서 경로가 깨지지 않게 했다.
 
 ### 서비스 플로우
 
