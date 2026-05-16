@@ -2,7 +2,7 @@
 
 ## 프로젝트 소개
 
-**FactFlow**는 **Next.js**, **TypeScript**, **LangChain** 기반의 **뉴스 기사 URL 분석** 웹 애플리케이션이다. 기사 링크를 입력(또는 붙여넣기)하면 **요약·키워드·난이도·표현 분석·사고형 질문·보완 인사이트** 등을 보여 주고, **Recoil**·**Zod**·**Axios**로 상태와 검증을 처리한다.
+**FactFlow FE**는 **Next.js**, **TypeScript** 기반 **뉴스 기사 URL 분석** UI이다. 분석 로직은 **FactFlow_BE (Spring Boot)** API로 위임하고, 화면은 결과를 렌더링한다. 상태에는 **Recoil** 등을 사용한다.
 
 ### 개발 기간
 - 2025.06 ~ 07
@@ -12,44 +12,12 @@
 |---|---|---|
 | Frontend, Langchain | Frontend |  Frontend, Langchain |
 
-## 주요 기술
+## 아키텍처 (현재)
 
-### LangChain 병렬 처리
+- 분석 요청은 **Spring 백엔드**(동일 레포 상위 디렉터리 `FactFlow_BE`)의 `POST /api/v1/news/analyze`로 전달한다.
+- FE `.env`(또는 `.env.local`)에 **`NEXT_PUBLIC_BACKEND_URL=http://localhost:8080`** 형태로 베이스 URL을 설정한다.
 
-`NewsAnalysisService`에서 본문·제목을 넣은 뒤, **제목 재작성·요약·키워드·난이도·표현·사고 질문** 등 여러 LangChain 체인을 **`Promise.all`로 한 번에 병렬 실행**한다. 각 체인은 재시도·쿼터 오류 처리가 들어가 있고, 이 단계가 끝난 뒤에만 요약·키워드를 모아 **관련 기사 검색**과 **보완 인사이트(ComplementaryInsight)** 같이 앞 단계 결과에 의존하는 분석을 이어서 수행한다.
-
-```ts
-// lib/langchains/service/newsAnalysisService.ts — runAllAnalyses (요지)
-const basicTasks = basicAnalyses.map(async (analysisType) => {
-  // analysisType별로 title / summary / keywords / difficulty / expression / questions 체인 invoke
-  // … executeWithRetry로 감싼 뒤 results[analysisType]에 저장
-});
-await Promise.all(basicTasks); // 6개 기본 분석 병렬 완료
-// 이후: fetchSimilarNews(요약, 키워드) → complementary 인사이트 순차 실행
-```
-
-### 크롤링 · 본문 추출
-
-입력 URL에 대해 **Axios로 HTML을 가져오고**, **Cheerio로 DOM을 파싱**해 제목·작성자·게시일·본문을 뽑는다. 요청에는 브라우저에 가까운 `User-Agent`·타임아웃·리다이렉트 한도를 두어, 뉴스 사이트 HTML을 서버에서 안정적으로 긁어 오도록 했다.
-
-```ts
-// lib/langchains/utils/contentExtractor.ts — extractFromUrl (발췌)
-const response = await axios.get(url, {
-  headers: { "User-Agent": "Mozilla/5.0 ... Chrome/120.0.0.0 Safari/537.36", /* … */ },
-  timeout: 10000,
-  maxRedirects: 5,
-});
-const $ = cheerio.load(response.data);
-const title = extractTitle($);
-const content = extractMainContent($);
-```
-### 병렬 다이어그램
-
-![병렬 다이어그램](./docs/paralleldiagram.png)
-
-### 관련 뉴스(외부 검색)
-
-유사 기사 목록은 HTML을 추가로 크롤링하는 대신, **네이버 뉴스 검색 Open API**(`fetchSimilarNews`)로 요약·키워드를 쿼리에 넣어 가져온다. 이를 위해 `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET` 환경 변수가 필요하다.
+## 주요 기술 (FE)
 
 ## 개발 기간
 
@@ -71,7 +39,12 @@ const content = extractMainContent($);
 
 ### 환경 변수
 
-프로젝트 루트에 `.env` 또는 `.env.local`을 두고, OpenAI·Anthropic·Google GenAI 등 **LangChain에서 사용하는 API 키**와, 관련 뉴스 기능을 쓸 경우 **`NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET`**을 설정한다. (전체 변수명은 `lib/langchains/config/aiModelConfig.ts` 및 API 라우트를 참고한다.)
+- **`NEXT_PUBLIC_BACKEND_URL`** — 필수. Spring 서버 베이스 URL (예: `http://localhost:8080`).  
+- LLM·네이버 키는 **백엔드**( `FactFlow_BE` ) 실행 환경에 설정한다. (자세히는 해당 프로젝트 `application.yml` 참고.)
+
+### 배포 참고
+
+- Next를 **별도 호스팅**(Vercel 등)하면, 크롬 익스텐션 또는 브라우저에서는 **공개 가능한 HTTPS 백엔드 URL**을 `NEXT_PUBLIC_BACKEND_URL` 에 넣어야 한다. CORS는 `FactFlow_BE` 의 `factflow.cors` 설정으로 맞춘다.
 
 ### 설치 및 실행
 
@@ -116,13 +89,9 @@ npm run lint   # Next.js ESLint
 ![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
 ![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
 
-### AI · 데이터 · 크롤링
+### AI · 분석 서버
 
-![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white)
-![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white)
-![Zod](https://img.shields.io/badge/Zod-3068B7?style=for-the-badge&logo=zod&logoColor=white)
-![Axios](https://img.shields.io/badge/Axios-5A29E4?style=for-the-badge&logo=axios&logoColor=white)
-![Cheerio](https://img.shields.io/badge/Cheerio-E88C3C?style=for-the-badge)
+- 모델·크롤링·네이버 연동은 **`FactFlow_BE` (Spring Boot)** 에서 처리한다.
 
 ### 상태 · 스타일
 
@@ -147,7 +116,7 @@ npm run lint   # Next.js ESLint
 
 ![분석 로딩](./docs/factflow-loading.png)
 
-**LangChain 파이프라인이 동작하는 동안 진행 상태를 보여 주는 로딩 화면이다.**
+**백엔드 분석이 진행되는 동안 진행 상태를 보여 주는 로딩 화면이다.**
 
 
 ![메인 입력](./docs/factflow-input.png)
@@ -187,12 +156,10 @@ FactFlow_FE/
 ├── app/
 │   ├── layout.tsx
 │   ├── page.tsx            # 메인(폼 / 로딩 / 결과)
-│   └── api/                # Route Handlers (뉴스 분석, OG 이미지 등)
+│   └── api/                # Route Handlers (OG 이미지 등)
 ├── components/             # NewsAnalysisForm, 결과·로딩 UI 등
 ├── lib/
-│   ├── hooks/              # useNewsAnalysis 등
-│   ├── langchains/         # 모델 설정, 체인, 서비스
-│   └── pipelines/          # 뉴스 분석 파이프라인
+│   └── hooks/              # useNewsAnalysis
 ├── docs/                   # README용 스크린샷 (파일명 영어)
 ├── package.json
 ├── next.config.mjs
@@ -207,11 +174,12 @@ FactFlow_FE/
 |------|------|
 | `/` | 메인 — 뉴스 URL 입력 및 분석 결과 |
 
-주요 API (참고)
+주요 API (FE · 참고)
 
 | 경로 | 설명 |
 |------|------|
-| `POST /api/news/analyze` | 뉴스 URL 분석 |
 | `GET /api/og-image` | OG 메타 이미지 등 보조 엔드포인트 |
+
+분석 본 기능은 **`{NEXT_PUBLIC_BACKEND_URL}/api/v1/news/analyze`** (Spring) 를 사용한다.
 
 ---
